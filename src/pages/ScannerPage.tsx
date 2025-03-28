@@ -40,7 +40,7 @@ export default function BasicScanner() {
         },
         (errorMessage) => {
           // You can optionally log these errors
-          // console.warn("QR scan error:", errorMessage)
+          console.warn("QR scan error:", errorMessage)
         }
       )
 
