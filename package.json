@@ -1,6 +1,6 @@
 {
   "name": "pulse-security",
-  "homepage": "https://chrisq-dev.github.io/pulse-security",
+  "homepage": "https://chris-88.github.io/pulse-security",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,6 +12,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
+
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-label": "^2.1.2",
