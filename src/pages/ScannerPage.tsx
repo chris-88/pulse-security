@@ -56,44 +56,44 @@ export default function ScannerPage() {
             return;
         }
 
+        console.log("Initializing scanner...");
+
         try {
             const scanner = new Html5Qrcode(scannerId);
-
             await scanner.start(
-                { facingMode: "environment" },
+                { facingMode: "environment" }, // Ensures front camera on most devices
                 {
                     fps: 10,
                     qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0,
                 },
                 onScanSuccess,
-                () => {
-                    // Optional: silent frame decode failure
-                    // console.warn("Decode failed:", errorMessage);
+                (errorMessage) => {
+                    console.error("Scan error:", errorMessage);  // Log scanning errors here
+                    toast.error("Scanning failed: " + errorMessage);
                 }
             );
-
             setScanner(scanner);
             setIsScanning(true);
-            toast.success("Scanner started");
-        } catch (error) {
-            console.error("Scanner startup error:", error);
-            toast.error("Failed to start scanner");
+            console.log("Scanner started.");
+        } catch (err) {
+            toast.error("Camera permission or initialization failed");
+            console.error("Error starting scanner:", err);
         }
     };
 
-
-
     const stopScanner = async () => {
         if (scanner?.isScanning) {
-            await scanner.stop()
-            await scanner.clear()
+            await scanner.stop();
+            await scanner.clear();
+            setIsScanning(false);
+            setScanner(null);
+            console.log("Scanner stopped.");
         }
-        setIsScanning(false)
-        setScanner(null)
-    }
+    };
 
     const onScanSuccess = (decodedText: string) => {
+        console.log("Decoded QR Code:", decodedText); // Add log for debugging
+
         try {
             const [name, email] = atob(decodedText).split("|").map((s) => s.trim())
             const code = decodedText
@@ -123,7 +123,7 @@ export default function ScannerPage() {
         } catch {
             toast.error("Invalid QR format")
         }
-    }
+    };
 
     const confirmBib = () => {
         if (!currentScan) return

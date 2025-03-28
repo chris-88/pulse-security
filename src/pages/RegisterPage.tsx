@@ -31,20 +31,24 @@ export default function RegisterPage() {
       return
     }
 
-    const payload = JSON.stringify({
+    // Create the payload object
+    const payload = {
       name,
       company,
       license: hasLicense ? licenseNumber : "N/A",
-    })
+    }
 
     try {
-      const url = await QRCode.toDataURL(btoa(payload))
+      // Convert payload to a URI-encoded string, then base64 encode it
+      const encodedPayload = encodeURIComponent(JSON.stringify(payload))
+      const url = await QRCode.toDataURL(encodedPayload) // Generate QR code
       setQrImageUrl(url)
       setShowQRModal(true)
     } catch (err) {
       toast.error("Failed to generate QR code")
     }
   }
+
 
   const downloadQR = () => {
     const link = document.createElement("a")
