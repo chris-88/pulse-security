@@ -40,7 +40,7 @@ export default function RegisterPage() {
 
     try {
       // Convert payload to a URI-encoded string, then base64 encode it
-      const encodedPayload = encodeURIComponent(JSON.stringify(payload))
+      const encodedPayload = btoa(JSON.stringify(payload))
       const url = await QRCode.toDataURL(encodedPayload) // Generate QR code
       setQrImageUrl(url)
       setShowQRModal(true)
