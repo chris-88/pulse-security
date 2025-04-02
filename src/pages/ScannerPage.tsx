@@ -109,16 +109,6 @@ export default function ScannerPage() {
     }
   }
 
-  const handleAdminUnlock = () => {
-    const code = prompt("Enter 4-digit admin code")
-    if (code === "1234") {
-      setAdminUnlocked(true)
-      toast.success("Admin controls unlocked")
-    } else {
-      toast.error("Incorrect PIN")
-    }
-  }
-
   const downloadCSV = () => {
     if (!entries.length) {
       toast.info("No entries to download")
@@ -161,18 +151,6 @@ export default function ScannerPage() {
     updated.splice(indexToRemove, 1)
     setEntries(updated)
     toast.info("Entry removed")
-  }
-
-  const confirmAdminPin = () => {
-    if (adminPin === "1234") {
-      setAdminUnlocked(true)
-      setPinDialogOpen(false)
-      setAdminPin("")
-      toast.success("Admin unlocked")
-    } else {
-      toast.error("Incorrect PIN")
-      setAdminPin("")
-    }
   }
 
   // -----------USER INTERFACE-----------
@@ -290,7 +268,8 @@ export default function ScannerPage() {
           )}
         </CardContent>
       </Card>
-
+      
+      {/* -------LOCK BUTTON------- */}
       <div className="fixed bottom-4 right-4 z-50">
         <Button
           variant="ghost"
@@ -316,6 +295,7 @@ export default function ScannerPage() {
         </Button>
       </div>
 
+      {/* -------ADMIN DIALOG------- */}
       <Dialog open={pinDialogOpen} onOpenChange={setPinDialogOpen}>
         <DialogContent className="sm:max-w-sm w-[90%] text-center space-y-4 p-6">
           <DialogHeader>
@@ -352,7 +332,6 @@ export default function ScannerPage() {
           </div>
         </DialogContent>
       </Dialog>
-      
     </div>
   )
 }
