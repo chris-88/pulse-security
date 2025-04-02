@@ -36,6 +36,10 @@ export default function ScannerPage() {
   const lastScannedCodeRef = useRef<string | null>(null)
   const lastScanTimeRef = useRef<number>(0)
 
+  const [pendingEntry, setPendingEntry] = useState<Entry | null>(null)
+  const [bibModalOpen, setBibModalOpen] = useState(false)
+  const [customBib, setCustomBib] = useState("")
+
   const [isScanning, setIsScanning] = useState(false)
   const [eventName, setEventName] = useState("")
   const [entries, setEntries] = useState<Entry[]>([])
@@ -54,7 +58,7 @@ export default function ScannerPage() {
   // -----------HANDLERS-----------
   const handleScanSuccess = (decodedText: string) => {
     const now = Date.now()
-  
+
     // Prevent immediate duplicate scans of same QR
     if (
       decodedText === lastScannedCodeRef.current &&
@@ -62,39 +66,39 @@ export default function ScannerPage() {
     ) {
       return
     }
-  
+
     lastScannedCodeRef.current = decodedText
     lastScanTimeRef.current = now
-  
+
     try {
       const decodedPayload = JSON.parse(atob(decodedText))
       const name = decodedPayload.name?.trim()
       const license = decodedPayload.license?.trim()
       const company = decodedPayload.company?.trim()
-  
+
       if (!name || !license) {
         toast.error("QR code is missing name or license")
         return
       }
-  
+
       setEntries((prevEntries) => {
         const existingIndex = prevEntries.findIndex(
           (entry) => entry.license === license
         )
-  
+
         // CASE: Already scanned before
         if (existingIndex !== -1) {
           const existing = prevEntries[existingIndex]
-  
+
           // 🚫 Already signed out
           if (existing.finishTime) {
             toast.warning(`User ${existing.name} has already signed out.`)
             return prevEntries
           }
-  
+
           const start = new Date(existing.startTime).getTime()
           const elapsed = now - start
-  
+
           if (elapsed >= 10000) {
             // ✅ Eligible for sign-out
             const updatedEntries = [...prevEntries]
@@ -110,19 +114,20 @@ export default function ScannerPage() {
             return prevEntries
           }
         }
-  
+
         // New entry: sign in
         const newEntry: Entry = {
           name,
           license,
           company,
           event: eventName,
-          bib: "N/A",
+          bib: "", // to be assigned
           startTime: new Date().toISOString(),
         }
-  
-        toast.success(`Signed in: ${name}`)
-        return [...prevEntries, newEntry]
+
+        setPendingEntry(newEntry)
+        setBibModalOpen(true)
+        return prevEntries // Don't add yet        
       })
     } catch (err) {
       console.error("QR parsing failed", err)
@@ -236,6 +241,19 @@ export default function ScannerPage() {
       onConfirm,
     })
   }
+
+  const handleBibConfirm = (bib: string) => {
+    if (!pendingEntry) return
+  
+    const finalEntry = { ...pendingEntry, bib }
+  
+    setEntries((prev) => [...prev, finalEntry])
+    toast.success(`Signed in: ${finalEntry.name} with Bib ${bib}`)
+  
+    setPendingEntry(null)
+    setCustomBib("")
+    setBibModalOpen(false)
+  }  
 
   // -----------USER INTERFACE-----------
   return (
@@ -461,6 +479,55 @@ export default function ScannerPage() {
         cancelText={confirmDialog.cancelText}
         onConfirm={confirmDialog.onConfirm}
       />
+
+      {/* -------BIB DIALOG------- */}
+      <Dialog open={bibModalOpen} onOpenChange={setBibModalOpen}>
+        <DialogContent className="sm:max-w-sm w-[90%] text-center space-y-4 p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Assign Bib Number</DialogTitle>
+          </DialogHeader>
+
+          {pendingEntry && (
+            <>
+              <p className="text-muted-foreground text-sm">Assign bib for <strong>{pendingEntry.name}</strong></p>
+
+              <div className="grid grid-cols-5 gap-2 justify-center">
+                {Array.from({ length: 5 }, (_, i) => {
+                  const highestBib = entries.reduce((max, e) => {
+                    const num = parseInt(e.bib, 10)
+                    return isNaN(num) ? max : Math.max(max, num)
+                  }, 0)
+                  const suggestedBib = highestBib + i + 1
+
+                  return (
+                    <Button
+                      key={suggestedBib}
+                      variant="outline"
+                      onClick={() => handleBibConfirm(suggestedBib.toString())}
+                    >
+                      {suggestedBib}
+                    </Button>
+                  )
+                })}
+              </div>
+
+              <div className="pt-2">
+                <Input
+                  type="number"
+                  placeholder="Enter custom bib"
+                  value={customBib}
+                  onChange={(e) => setCustomBib(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && customBib.trim()) {
+                      handleBibConfirm(customBib.trim())
+                    }
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
