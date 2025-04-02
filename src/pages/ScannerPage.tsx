@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "react-toastify"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
@@ -31,7 +33,7 @@ type ConfirmDialogState = {
 // -----------DEFINITIONS-----------
 export default function ScannerPage() {
   const videoId = "html5qr-reader"
-  
+
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const lastScannedCodeRef = useRef<string | null>(null)
   const lastScanTimeRef = useRef<number>(0)
@@ -46,6 +48,8 @@ export default function ScannerPage() {
   const [adminUnlocked, setAdminUnlocked] = useState(false)
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
   const [adminPin, setAdminPin] = useState("")
+  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([])
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
     open: false,
     title: "",
@@ -142,37 +146,42 @@ export default function ScannerPage() {
 
   const startScanner = async () => {
     if (!eventName.trim()) {
-      toast.error("Please enter an event name");
-      return;
+      toast.error("Please enter an event name")
+      return
     }
 
     try {
-      const devices = await Html5Qrcode.getCameras();
+      const devices = await Html5Qrcode.getCameras()
       if (!devices || devices.length === 0) {
-        toast.error("No camera device found.");
-        return;
+        toast.error("No camera device found.")
+        return
       }
 
-      const selectedDeviceId = devices[0].id;
-      const html5QrCode = new Html5Qrcode(videoId);
+      // Set cameras if not already set
+      if (cameras.length === 0) {
+        const camList = devices.map((d) => ({ id: d.id, label: d.label || `Camera ${d.id}` }))
+        setCameras(camList)
+        setSelectedCameraId(devices[0].id)
+      }
+
+      const deviceIdToUse = selectedCameraId || devices[0].id
+      const html5QrCode = new Html5Qrcode(videoId)
 
       await html5QrCode.start(
-        { deviceId: { exact: selectedDeviceId } },
-        {
-          fps: 10,
-          qrbox: { width: 300, height: 300 },
-        },
+        { deviceId: { exact: deviceIdToUse } },
+        { fps: 10, qrbox: { width: 500, height: 500 } },
         handleScanSuccess,
         handleScanError
-      );
+      )
 
-      scannerRef.current = html5QrCode;
-      setIsScanning(true);
+      scannerRef.current = html5QrCode
+      setIsScanning(true)
     } catch (err) {
-      console.error("Failed to start scanner:", err);
-      toast.error("Failed to start scanner");
+      console.error("Failed to start scanner:", err)
+      toast.error("Failed to start scanner")
     }
   }
+
 
   const stopScanner = async () => {
     if (scannerRef.current) {
@@ -301,6 +310,27 @@ export default function ScannerPage() {
         </CardHeader>
 
         <CardContent>
+          {cameras.length > 1 && (
+            <div className="mb-4">
+              <Label className="text-sm mb-1 block">Camera</Label>
+              <Select
+                value={selectedCameraId ?? ""}
+                onValueChange={(value) => setSelectedCameraId(value)}
+              >
+                <SelectTrigger className="w-full sm:w-64">
+                  <SelectValue placeholder="Select camera" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cameras.map((cam) => (
+                    <SelectItem key={cam.id} value={cam.id}>
+                      {cam.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div
             id={videoId}
             className={`transition-all duration-300 ease-in-out overflow-hidden rounded border 
