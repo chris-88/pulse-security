@@ -6,6 +6,7 @@ import { toast } from "react-toastify"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 
 // -----------TYPES-----------
 type Entry = {
@@ -33,6 +34,8 @@ export default function ScannerPage() {
   const [adminUnlocked, setAdminUnlocked] = useState(false)
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
   const [adminPin, setAdminPin] = useState("")
+
+  const [pendingRemovalIndex, setPendingRemovalIndex] = useState<number | null>(null)
 
   // -----------HANDLERS-----------
   const startScanner = async () => {
@@ -144,13 +147,14 @@ export default function ScannerPage() {
     toast.success("All data reset")
   }
 
-  const handleRemove = (indexToRemove: number) => {
-    if (!confirm("Are you sure you want to remove this entry?")) return
-
-    const updated = [...entries]
-    updated.splice(indexToRemove, 1)
-    setEntries(updated)
-    toast.info("Entry removed")
+  const confirmRemoval = () => {
+    if (pendingRemovalIndex !== null) {
+      const updated = [...entries]
+      updated.splice(pendingRemovalIndex, 1)
+      setEntries(updated)
+      toast.info("Entry removed")
+      setPendingRemovalIndex(null)
+    }
   }
 
   // -----------USER INTERFACE-----------
@@ -239,7 +243,7 @@ export default function ScannerPage() {
                             variant="outline"
                             size="sm"
                             className="text-red-600 border-red-500 hover:bg-red-100"
-                            onClick={() => handleRemove(index)}
+                            onClick={() => setPendingRemovalIndex(index)}
                           >
                             Remove
                           </Button>
@@ -268,7 +272,7 @@ export default function ScannerPage() {
           )}
         </CardContent>
       </Card>
-      
+
       {/* -------LOCK BUTTON------- */}
       <div className="fixed bottom-4 right-4 z-50">
         <Button
@@ -332,6 +336,25 @@ export default function ScannerPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* -------REMOVAL DIALOG------- */}
+      <AlertDialog open={pendingRemovalIndex !== null} onOpenChange={(open) => {
+        if (!open) setPendingRemovalIndex(null)
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Entry</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this entry? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoval}>Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   )
 }

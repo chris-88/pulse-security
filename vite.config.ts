@@ -21,7 +21,7 @@ export default defineConfig({
         start_url: `/${repoName}/`,
         display: "standalone",
         background_color: "#ffffff",
-        theme_color: "#10b981", // Tailwind green-500
+        theme_color: "#fff", // Tailwind green-500
         icons: [
           {
             src: `/${repoName}/favicon-192.png`,
