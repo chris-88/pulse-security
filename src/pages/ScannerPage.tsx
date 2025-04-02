@@ -30,16 +30,16 @@ type ConfirmDialogState = {
 
 // -----------DEFINITIONS-----------
 export default function ScannerPage() {
-  const scannerRef = useRef<Html5Qrcode | null>(null)
   const videoId = "html5qr-reader"
-
+  
+  const scannerRef = useRef<Html5Qrcode | null>(null)
   const lastScannedCodeRef = useRef<string | null>(null)
   const lastScanTimeRef = useRef<number>(0)
 
   const [pendingEntry, setPendingEntry] = useState<Entry | null>(null)
   const [bibModalOpen, setBibModalOpen] = useState(false)
   const [customBib, setCustomBib] = useState("")
-
+  const [searchQuery, setSearchQuery] = useState("")
   const [isScanning, setIsScanning] = useState(false)
   const [eventName, setEventName] = useState("")
   const [entries, setEntries] = useState<Entry[]>([])
@@ -244,16 +244,16 @@ export default function ScannerPage() {
 
   const handleBibConfirm = (bib: string) => {
     if (!pendingEntry) return
-  
+
     const finalEntry = { ...pendingEntry, bib }
-  
+
     setEntries((prev) => [...prev, finalEntry])
     toast.success(`Signed in: ${finalEntry.name} with Bib ${bib}`)
-  
+
     setPendingEntry(null)
     setCustomBib("")
     setBibModalOpen(false)
-  }  
+  }
 
   // -----------USER INTERFACE-----------
   return (
@@ -308,6 +308,28 @@ export default function ScannerPage() {
             `}
           />
 
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
+            <div className="flex gap-2 flex-wrap">
+              <div className="bg-muted text-muted-foreground px-3 py-1 rounded text-sm">
+                Total: {entries.length}
+              </div>
+              <div className="bg-green-100 text-green-800 px-3 py-1 rounded text-sm">
+                Active: {entries.filter(e => !e.finishTime).length}
+              </div>
+              <div className="bg-gray-100 text-gray-800 px-3 py-1 rounded text-sm">
+                Signed Out: {entries.filter(e => e.finishTime).length}
+              </div>
+            </div>
+
+            <Input
+              type="search"
+              placeholder="Search by name, company, or license..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="max-w-sm"
+            />
+          </div>
+
           {entries.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full table-auto text-sm border bg-white rounded shadow">
@@ -325,46 +347,55 @@ export default function ScannerPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry, index) => (
-                    <tr key={index} className="border-t">
-                      <td className="px-4 py-2">{entry.name}</td>
-                      <td className="px-4 py-2">{entry.company}</td>
-                      <td className="px-4 py-2">{entry.license}</td>
-                      <td className="px-4 py-2">{entry.bib}</td>
-                      <td className="px-4 py-2">{entry.event}</td>
-                      <td className="px-4 py-2">
-                        {new Date(entry.startTime).toLocaleTimeString("en-GB")}
-                      </td>
-                      <td className="px-4 py-2">
-                        {entry.finishTime
-                          ? new Date(entry.finishTime).toLocaleTimeString("en-GB")
-                          : ""}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {adminUnlocked ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 border-red-500 hover:bg-red-100"
-                            onClick={() =>
-                              showConfirmDialog({
-                                title: "Remove Entry",
-                                description: "Are you sure you want to remove this entry? This action cannot be undone.",
-                                confirmText: "Remove",
-                                cancelText: "Cancel",
-                                onConfirm: () => confirmRemoval(index),
-                              })
-                            }
-                          >
-                            Remove
-                          </Button>
-                        ) : (
-                          <span className="text-gray-400 italic">Locked</span>
-                        )}
-                      </td>
+                  {entries
+                    .filter((entry) => {
+                      const query = searchQuery.toLowerCase()
+                      return (
+                        entry.name.toLowerCase().includes(query) ||
+                        entry.company.toLowerCase().includes(query) ||
+                        entry.license.toLowerCase().includes(query)
+                      )
+                    })
+                    .map((entry, index) => (
+                      <tr key={index} className="border-t">
+                        <td className="px-4 py-2">{entry.name}</td>
+                        <td className="px-4 py-2">{entry.company}</td>
+                        <td className="px-4 py-2">{entry.license}</td>
+                        <td className="px-4 py-2">{entry.bib}</td>
+                        <td className="px-4 py-2">{entry.event}</td>
+                        <td className="px-4 py-2">
+                          {new Date(entry.startTime).toLocaleTimeString("en-GB")}
+                        </td>
+                        <td className="px-4 py-2">
+                          {entry.finishTime
+                            ? new Date(entry.finishTime).toLocaleTimeString("en-GB")
+                            : ""}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          {adminUnlocked ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 border-red-500 hover:bg-red-100"
+                              onClick={() =>
+                                showConfirmDialog({
+                                  title: "Remove Entry",
+                                  description: "Are you sure you want to remove this entry? This action cannot be undone.",
+                                  confirmText: "Remove",
+                                  cancelText: "Cancel",
+                                  onConfirm: () => confirmRemoval(index),
+                                })
+                              }
+                            >
+                              Remove
+                            </Button>
+                          ) : (
+                            <span className="text-gray-400 italic">Locked</span>
+                          )}
+                        </td>
 
-                    </tr>
-                  ))}
+                      </tr>
+                    ))}
                 </tbody>
 
               </table>
