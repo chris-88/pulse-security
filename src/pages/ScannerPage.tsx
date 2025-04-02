@@ -90,7 +90,7 @@ export default function ScannerPage() {
         if (existingIndex !== -1) {
           const existing = prevEntries[existingIndex]
 
-          // 🚫 Already signed out
+          // Already signed out
           if (existing.finishTime) {
             toast.warning(`User ${existing.name} has already signed out.`)
             return prevEntries
@@ -100,7 +100,7 @@ export default function ScannerPage() {
           const elapsed = now - start
 
           if (elapsed >= 10000) {
-            // ✅ Eligible for sign-out
+            // Eligible for sign-out
             const updatedEntries = [...prevEntries]
             updatedEntries[existingIndex] = {
               ...existing,
@@ -109,7 +109,7 @@ export default function ScannerPage() {
             toast.info(`Signed out: ${existing.name}`)
             return updatedEntries
           } else {
-            // ⏳ Too soon to sign out
+            // Too soon to sign out
             toast.warning(`Please wait at least 10 seconds before signing out.`)
             return prevEntries
           }

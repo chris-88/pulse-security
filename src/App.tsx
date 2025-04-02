@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Link } from "react-router-dom"
 import "react-toastify/dist/ReactToastify.css"
-import { toast } from "react-toastify"
 
 export default function App() {
   return (
@@ -19,9 +18,6 @@ export default function App() {
             </Button>
             <Button asChild variant="outline">
               <Link to="/scan">Scanner Mode</Link>
-            </Button>
-            <Button variant="destructive" onClick={() => toast.success("🚀 Toast system is working!")}>
-              Test Toast
             </Button>
           </div>
         </CardContent>

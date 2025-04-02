@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "react-toastify"
 import QRCode from "qrcode"
@@ -14,7 +15,6 @@ const companies = [
   "Bidvest Noonan",
   "G4S",
   "Eventsec",
-  "Other",
 ]
 
 export default function RegisterPage() {
@@ -24,27 +24,29 @@ export default function RegisterPage() {
   const [licenseNumber, setLicenseNumber] = useState("")
   const [qrImageUrl, setQrImageUrl] = useState("")
   const [showQRModal, setShowQRModal] = useState(false)
+  const [customCompany, setCustomCompany] = useState("")
 
   const handleSubmit = async () => {
-    if (!name || !company || (hasLicense && !licenseNumber)) {
+    const resolvedCompany = company === "Other" ? customCompany.trim() : company.trim()
+
+    if (!name.trim() || !resolvedCompany || (hasLicense && !licenseNumber.trim())) {
       toast.error("Please complete all required fields")
       return
     }
 
-    // Create the payload object
     const payload = {
-      name,
-      company,
-      license: hasLicense ? licenseNumber : "N/A",
+      name: name.trim(),
+      company: resolvedCompany,
+      license: hasLicense ? licenseNumber.trim() : "N/A",
     }
 
     try {
-      // Convert payload to a URI-encoded string, then base64 encode it
       const encodedPayload = btoa(JSON.stringify(payload))
-      const url = await QRCode.toDataURL(encodedPayload) // Generate QR code
+      const url = await QRCode.toDataURL(encodedPayload)
       setQrImageUrl(url)
       setShowQRModal(true)
     } catch (err) {
+      console.error(err)
       toast.error("Failed to generate QR code")
     }
   }
@@ -64,28 +66,42 @@ export default function RegisterPage() {
 
         <div className="space-y-2">
           <Label htmlFor="name">Full Name</Label>
-          <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input id="name" value={name} placeholder="Michael Collins" onChange={(e) => setName(e.target.value)} />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="company">Select Company</Label>
-          <select
-            id="company"
-            className="w-full border rounded px-3 py-2"
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-          >
-            <option value="">-- Select Company --</option>
-            {companies.map((comp) => (
-              <option key={comp} value={comp}>
-                {comp}
-              </option>
-            ))}
-          </select>
+          <Select value={company} onValueChange={setCompany}>
+            <SelectTrigger className="w-full" id="company">
+              <SelectValue placeholder="Please select..." />
+            </SelectTrigger>
+            <SelectContent>
+              {companies.map((comp) => (
+                <SelectItem key={comp} value={comp}>
+                  {comp}
+                </SelectItem>
+              ))}
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {company === "Other" && (
+            <div className="space-y-2 pt-4">
+              <Label htmlFor="custom-company">Company Name</Label>
+              <Input
+                id="custom-company"
+                placeholder="Please provide..."
+                value={customCompany}
+                onChange={(e) => setCustomCompany(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
+
+
         <div className="flex items-center justify-between">
-          <Label htmlFor="psa">Has PSA License?</Label>
+          <Label htmlFor="psa">Do you have your PSA License with you?</Label>
           <Switch id="psa" checked={hasLicense} onCheckedChange={setHasLicense} />
         </div>
 
