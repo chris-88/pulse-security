@@ -4,7 +4,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "react-toastify"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
+// -----------TYPES-----------
 type Entry = {
   name: string
   company: string
@@ -15,7 +18,7 @@ type Entry = {
   finishTime?: string
 }
 
-
+// -----------DEFINITIONS-----------
 export default function ScannerPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const videoId = "html5qr-reader"
@@ -23,8 +26,15 @@ export default function ScannerPage() {
   const [isScanning, setIsScanning] = useState(false)
   const [eventName, setEventName] = useState("")
   const [entries, setEntries] = useState<Entry[]>([])
-  const [adminUnlocked, setAdminUnlocked] = useState(false)
 
+  const lastScannedCodeRef = useRef<string | null>(null)
+  const lastScanTimeRef = useRef<number>(0)
+
+  const [adminUnlocked, setAdminUnlocked] = useState(false)
+  const [pinDialogOpen, setPinDialogOpen] = useState(false)
+  const [adminPin, setAdminPin] = useState("")
+
+  // -----------HANDLERS-----------
   const startScanner = async () => {
     if (!eventName.trim()) {
       toast.error("Please enter an event name")
@@ -48,17 +58,28 @@ export default function ScannerPage() {
           qrbox: { width: 300, height: 400 },
         },
         (decodedText) => {
+          const now = Date.now()
+
+          if (
+            decodedText === lastScannedCodeRef.current &&
+            now - lastScanTimeRef.current < 10000
+          ) {
+            return
+          }
+
           try {
             const decodedPayload = JSON.parse(atob(decodedText))
 
             const entry: Entry = {
               ...decodedPayload,
-              bib: "N/A", // assign bib later if needed
+              bib: "N/A",
               event: eventName,
               startTime: new Date().toISOString(),
             }
 
             setEntries((prev) => [...prev, entry])
+            lastScannedCodeRef.current = decodedText
+            lastScanTimeRef.current = now
             toast.success(`Scanned: ${entry.name}`)
           } catch (err) {
             console.log(err)
@@ -104,7 +125,18 @@ export default function ScannerPage() {
       return
     }
 
-    const rows = [["Scanned Code"], ...entries.map((e) => [e])]
+    const rows = [
+      ["Name", "Company", "License", "Bib", "Event", "Start Time", "Finish Time"],
+      ...entries.map((e) => [
+        e.name,
+        e.company,
+        e.license,
+        e.bib,
+        e.event,
+        e.startTime,
+        e.finishTime || "",
+      ]),
+    ]
     const csv = rows.map((r) => r.join(",")).join("\n")
     const blob = new Blob([csv], { type: "text/csv" })
     const url = URL.createObjectURL(blob)
@@ -122,6 +154,28 @@ export default function ScannerPage() {
     toast.success("All data reset")
   }
 
+  const handleRemove = (indexToRemove: number) => {
+    if (!confirm("Are you sure you want to remove this entry?")) return
+
+    const updated = [...entries]
+    updated.splice(indexToRemove, 1)
+    setEntries(updated)
+    toast.info("Entry removed")
+  }
+
+  const confirmAdminPin = () => {
+    if (adminPin === "1234") {
+      setAdminUnlocked(true)
+      setPinDialogOpen(false)
+      setAdminPin("")
+      toast.success("Admin unlocked")
+    } else {
+      toast.error("Incorrect PIN")
+      setAdminPin("")
+    }
+  }
+
+  // -----------USER INTERFACE-----------
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <Card
@@ -167,7 +221,7 @@ export default function ScannerPage() {
         </CardHeader>
 
         <CardContent>
-          <div id={videoId} className="" />
+          <div id={videoId} className="aspect-video w-full rounded border border-gray-300 mb-4" />
 
           {entries.length > 0 && (
             <div className="overflow-x-auto">
@@ -181,6 +235,8 @@ export default function ScannerPage() {
                     <th className="px-4 py-2">Event</th>
                     <th className="px-4 py-2">Start</th>
                     <th className="px-4 py-2">Finish</th>
+                    <th className="px-4 py-2 text-right">Actions</th>
+
                   </tr>
                 </thead>
                 <tbody>
@@ -199,13 +255,28 @@ export default function ScannerPage() {
                           ? new Date(entry.finishTime).toLocaleTimeString("en-GB")
                           : ""}
                       </td>
+                      <td className="px-4 py-2 text-right">
+                        {adminUnlocked ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 border-red-500 hover:bg-red-100"
+                            onClick={() => handleRemove(index)}
+                          >
+                            Remove
+                          </Button>
+                        ) : (
+                          <span className="text-gray-400 italic">Locked</span>
+                        )}
+                      </td>
+
                     </tr>
                   ))}
                 </tbody>
+
               </table>
             </div>
           )}
-
 
           {adminUnlocked && (
             <div className="flex flex-col sm:flex-row gap-4 mt-6">
@@ -220,13 +291,68 @@ export default function ScannerPage() {
         </CardContent>
       </Card>
 
-      {!adminUnlocked && (
-        <div className="fixed bottom-4 right-4">
-          <Button variant="outline" onClick={handleAdminUnlock}>
-            🔒
-          </Button>
-        </div>
-      )}
+      <div className="fixed bottom-4 right-4 z-50">
+        <Button
+          variant="ghost"
+          className="p-2"
+          onClick={() => {
+            if (adminUnlocked) {
+              setAdminUnlocked(false)
+              toast.info("Admin locked")
+            } else {
+              setPinDialogOpen(true)
+            }
+          }}
+        >
+          {adminUnlocked ? (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 text-green-600">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 text-red-600">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+            </svg>
+          )}
+        </Button>
+      </div>
+
+      <Dialog open={pinDialogOpen} onOpenChange={setPinDialogOpen}>
+        <DialogContent className="sm:max-w-sm w-[90%] text-center space-y-4 p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Admin Access</DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-muted-foreground">
+            Enter the 4-digit admin PIN to unlock additional controls.
+          </p>
+
+          <div className="flex justify-center">
+            <InputOTP
+              maxLength={4}
+              value={adminPin}
+              onChange={setAdminPin}
+              onComplete={(val) => {
+                if (val === "1234") {
+                  setAdminUnlocked(true)
+                  toast.success("Admin controls unlocked")
+                } else {
+                  toast.error("Incorrect PIN")
+                }
+                setPinDialogOpen(false)
+                setAdminPin("")
+              }}
+              className="scale-125"
+            >
+              <InputOTPGroup>
+                {[0, 1, 2, 3].map((_, i) => (
+                  <InputOTPSlot key={i} index={i} />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
     </div>
   )
 }
