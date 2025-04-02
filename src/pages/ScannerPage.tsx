@@ -6,7 +6,7 @@ import { toast } from "react-toastify"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 // -----------TYPES-----------
 type Entry = {
@@ -19,86 +19,153 @@ type Entry = {
   finishTime?: string
 }
 
+type ConfirmDialogState = {
+  open: boolean
+  title: string
+  description: string
+  confirmText: string
+  cancelText?: string
+  onConfirm: () => void
+}
+
 // -----------DEFINITIONS-----------
 export default function ScannerPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const videoId = "html5qr-reader"
 
-  const [isScanning, setIsScanning] = useState(false)
-  const [eventName, setEventName] = useState("")
-  const [entries, setEntries] = useState<Entry[]>([])
-
   const lastScannedCodeRef = useRef<string | null>(null)
   const lastScanTimeRef = useRef<number>(0)
 
+  const [isScanning, setIsScanning] = useState(false)
+  const [eventName, setEventName] = useState("")
+  const [entries, setEntries] = useState<Entry[]>([])
   const [adminUnlocked, setAdminUnlocked] = useState(false)
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
   const [adminPin, setAdminPin] = useState("")
-
-  const [pendingRemovalIndex, setPendingRemovalIndex] = useState<number | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
+    open: false,
+    title: "",
+    description: "",
+    confirmText: "",
+    cancelText: "Cancel",
+    onConfirm: () => { },
+  })
 
   // -----------HANDLERS-----------
+  const handleScanSuccess = (decodedText: string) => {
+    const now = Date.now()
+  
+    // Prevent immediate duplicate scans of same QR
+    if (
+      decodedText === lastScannedCodeRef.current &&
+      now - lastScanTimeRef.current < 10000
+    ) {
+      return
+    }
+  
+    lastScannedCodeRef.current = decodedText
+    lastScanTimeRef.current = now
+  
+    try {
+      const decodedPayload = JSON.parse(atob(decodedText))
+      const name = decodedPayload.name?.trim()
+      const license = decodedPayload.license?.trim()
+      const company = decodedPayload.company?.trim()
+  
+      if (!name || !license) {
+        toast.error("QR code is missing name or license")
+        return
+      }
+  
+      setEntries((prevEntries) => {
+        const existingIndex = prevEntries.findIndex(
+          (entry) => entry.license === license
+        )
+  
+        // CASE: Already scanned before
+        if (existingIndex !== -1) {
+          const existing = prevEntries[existingIndex]
+  
+          // 🚫 Already signed out
+          if (existing.finishTime) {
+            toast.warning(`User ${existing.name} has already signed out.`)
+            return prevEntries
+          }
+  
+          const start = new Date(existing.startTime).getTime()
+          const elapsed = now - start
+  
+          if (elapsed >= 10000) {
+            // ✅ Eligible for sign-out
+            const updatedEntries = [...prevEntries]
+            updatedEntries[existingIndex] = {
+              ...existing,
+              finishTime: new Date().toISOString(),
+            }
+            toast.info(`Signed out: ${existing.name}`)
+            return updatedEntries
+          } else {
+            // ⏳ Too soon to sign out
+            toast.warning(`Please wait at least 10 seconds before signing out.`)
+            return prevEntries
+          }
+        }
+  
+        // New entry: sign in
+        const newEntry: Entry = {
+          name,
+          license,
+          company,
+          event: eventName,
+          bib: "N/A",
+          startTime: new Date().toISOString(),
+        }
+  
+        toast.success(`Signed in: ${name}`)
+        return [...prevEntries, newEntry]
+      })
+    } catch (err) {
+      console.error("QR parsing failed", err)
+      toast.error("Invalid QR Code format")
+    }
+  }
+
+  const handleScanError = (errorMessage: string) => {
+    console.warn("QR scan error:", errorMessage);
+    // toast.error("QR code scanning error");
+  }
+
   const startScanner = async () => {
     if (!eventName.trim()) {
-      toast.error("Please enter an event name")
-      return
+      toast.error("Please enter an event name");
+      return;
     }
 
     try {
-      const devices = await Html5Qrcode.getCameras()
+      const devices = await Html5Qrcode.getCameras();
       if (!devices || devices.length === 0) {
-        toast.error("No camera device found.")
-        return
+        toast.error("No camera device found.");
+        return;
       }
 
-      const selectedDeviceId = devices[0].id
-      const html5QrCode = new Html5Qrcode(videoId)
+      const selectedDeviceId = devices[0].id;
+      const html5QrCode = new Html5Qrcode(videoId);
 
       await html5QrCode.start(
         { deviceId: { exact: selectedDeviceId } },
         {
           fps: 10,
-          qrbox: { width: 300, height: 400 },
+          qrbox: { width: 300, height: 300 },
         },
-        (decodedText) => {
-          const now = Date.now()
+        handleScanSuccess,
+        handleScanError
+      );
 
-          if (
-            decodedText === lastScannedCodeRef.current &&
-            now - lastScanTimeRef.current < 10000
-          ) {
-            return
-          }
-
-          try {
-            const decodedPayload = JSON.parse(atob(decodedText))
-
-            const entry: Entry = {
-              ...decodedPayload,
-              bib: "N/A",
-              event: eventName,
-              startTime: new Date().toISOString(),
-            }
-
-            setEntries((prev) => [...prev, entry])
-            lastScannedCodeRef.current = decodedText
-            lastScanTimeRef.current = now
-            toast.success(`Scanned: ${entry.name}`)
-          } catch (err) {
-            console.log(err)
-            toast.error("Invalid QR Code format")
-          }
-        },
-        (errorMessage) => {
-          console.warn("QR scan error:", errorMessage)
-        }
-      )
-
-      scannerRef.current = html5QrCode
-      setIsScanning(true)
+      scannerRef.current = html5QrCode;
+      setIsScanning(true);
     } catch (err) {
-      console.error("Failed to start scanner:", err)
-      toast.error("Failed to start scanner")
+      console.error("Failed to start scanner:", err);
+      toast.error("Failed to start scanner");
     }
   }
 
@@ -112,7 +179,7 @@ export default function ScannerPage() {
     }
   }
 
-  const downloadCSV = () => {
+  const handleDownloadConfirm = () => {
     if (!entries.length) {
       toast.info("No entries to download")
       return
@@ -141,20 +208,33 @@ export default function ScannerPage() {
     URL.revokeObjectURL(url)
   }
 
-  const resetAll = () => {
-    if (!confirm("Reset all scanned data?")) return
+  const handleResetConfirm = () => {
     setEntries([])
     toast.success("All data reset")
   }
 
-  const confirmRemoval = () => {
-    if (pendingRemovalIndex !== null) {
-      const updated = [...entries]
-      updated.splice(pendingRemovalIndex, 1)
-      setEntries(updated)
-      toast.info("Entry removed")
-      setPendingRemovalIndex(null)
-    }
+  const confirmRemoval = (index: number) => {
+    const updated = [...entries]
+    updated.splice(index, 1)
+    setEntries(updated)
+    toast.info("Entry removed")
+  }
+
+  const showConfirmDialog = ({
+    title,
+    description,
+    confirmText,
+    cancelText = "Cancel",
+    onConfirm,
+  }: Omit<ConfirmDialogState, "open">) => {
+    setConfirmDialog({
+      open: true,
+      title,
+      description,
+      confirmText,
+      cancelText,
+      onConfirm,
+    })
   }
 
   // -----------USER INTERFACE-----------
@@ -168,7 +248,7 @@ export default function ScannerPage() {
           <CardTitle className="text-xl">Pulse Scanner</CardTitle>
           <div className="flex gap-2 w-full md:w-auto items-center">
             <Input
-              placeholder="Event name"
+              placeholder="Please provide an event name..."
               value={eventName}
               onChange={(e) => setEventName(e.target.value)}
             />
@@ -203,7 +283,12 @@ export default function ScannerPage() {
         </CardHeader>
 
         <CardContent>
-          <div id={videoId} className="aspect-video w-full rounded border border-gray-300 mb-4" />
+          <div
+            id={videoId}
+            className={`transition-all duration-300 ease-in-out overflow-hidden rounded border 
+              ${isScanning ? "scale-100 opacity-100 border-gray-300 mb-4" : "scale-0 opacity-0 h-0 border-transparent"}
+            `}
+          />
 
           {entries.length > 0 && (
             <div className="overflow-x-auto">
@@ -243,7 +328,15 @@ export default function ScannerPage() {
                             variant="outline"
                             size="sm"
                             className="text-red-600 border-red-500 hover:bg-red-100"
-                            onClick={() => setPendingRemovalIndex(index)}
+                            onClick={() =>
+                              showConfirmDialog({
+                                title: "Remove Entry",
+                                description: "Are you sure you want to remove this entry? This action cannot be undone.",
+                                confirmText: "Remove",
+                                cancelText: "Cancel",
+                                onConfirm: () => confirmRemoval(index),
+                              })
+                            }
                           >
                             Remove
                           </Button>
@@ -262,10 +355,31 @@ export default function ScannerPage() {
 
           {adminUnlocked && (
             <div className="flex flex-col sm:flex-row gap-4 mt-6">
-              <Button className="flex-1" onClick={downloadCSV}>
+              <Button
+                className="flex-1"
+                onClick={() =>
+                  showConfirmDialog({
+                    title: "Download CSV",
+                    description: "Do you want to download all entries as a CSV file?",
+                    confirmText: "Download",
+                    onConfirm: handleDownloadConfirm,
+                  })
+                }
+              >
                 Download CSV
               </Button>
-              <Button className="flex-1" variant="destructive" onClick={resetAll}>
+              <Button
+                className="flex-1"
+                variant="destructive"
+                onClick={() =>
+                  showConfirmDialog({
+                    title: "Reset All Entries",
+                    description: "Are you sure you want to remove all scanned entries? This cannot be undone.",
+                    confirmText: "Reset",
+                    onConfirm: handleResetConfirm,
+                  })
+                }
+              >
                 Reset All
               </Button>
             </div>
@@ -337,24 +451,16 @@ export default function ScannerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* -------REMOVAL DIALOG------- */}
-      <AlertDialog open={pendingRemovalIndex !== null} onOpenChange={(open) => {
-        if (!open) setPendingRemovalIndex(null)
-      }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Entry</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove this entry? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRemoval}>Remove</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
+      {/* -------CONFIRMATION DIALOG------- */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        setOpen={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmText={confirmDialog.confirmText}
+        cancelText={confirmDialog.cancelText}
+        onConfirm={confirmDialog.onConfirm}
+      />
     </div>
   )
 }
