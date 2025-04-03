@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { toast } from "sonner"
 import { Clock, UserCheck, UserX, Users, Lock, LockOpen, Unlock, ScanLine, PauseCircle, } from "lucide-react"
@@ -203,12 +204,22 @@ export default function ScannerPage() {
         setSelectedCameraId(devices[0].id)
       }
 
-      const deviceIdToUse = selectedCameraId || devices[0].id
       const html5QrCode = new Html5Qrcode(videoId)
+      const selectedCamera = cameras.find((cam) => cam.id === selectedCameraId)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      const cameraConfig = isIOS && selectedCamera?.label.toLowerCase().includes("back")
+        ? { facingMode: "environment" as const }
+        : { deviceId: { exact: selectedCameraId || devices[0].id } }
 
       await html5QrCode.start(
-        { deviceId: { exact: deviceIdToUse } },
-        { fps: 10, qrbox: { width: 500, height: 500 } },
+        cameraConfig,
+        {
+          fps: 10,
+          qrbox: function (viewfinderWidth: number, viewfinderHeight: number) {
+            const size = Math.min(viewfinderWidth, viewfinderHeight, 500)
+            return { width: size, height: size }
+          }
+        },
         handleScanSuccess,
         handleScanError
       )
@@ -405,12 +416,20 @@ export default function ScannerPage() {
             </div>
           )}
 
-          <div
-            id={videoId}
-            className={`transition-all duration-300 ease-in-out overflow-hidden rounded border 
-              ${isScanning ? "scale-100 opacity-100 border-gray-300 mb-4" : "scale-0 opacity-0 h-0 border-transparent"}
-            `}
-          />
+          <div className="w-full max-w-[1000px] mx-auto px-4">
+            <AspectRatio ratio={4 / 3} className="w-full">
+              <div
+                id={videoId}
+                className={`
+                  w-full h-full rounded border transition-all duration-300 ease-in-out overflow-hidden
+                  ${isScanning ? "opacity-100 border-gray-300" : "opacity-0 border-transparent pointer-events-none"}
+                `}
+                style={{
+                  maxHeight: isScanning ? "600px" : "0px",
+                }}
+              />
+            </AspectRatio>
+          </div>
 
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
             <div className="flex flex-wrap gap-2 items-center">
