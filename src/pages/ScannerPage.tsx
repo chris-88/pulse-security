@@ -9,7 +9,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
-import { toast } from "react-toastify"
+import { toast } from "sonner"
 import { Clock, UserCheck, UserX, Users, Lock, LockOpen, Unlock, ScanLine, PauseCircle, } from "lucide-react"
 
 // -----------TYPES-----------
@@ -88,22 +88,15 @@ export default function ScannerPage() {
   useEffect(() => {
     if (!adminUnlocked && eventName.trim() && !eventNameCommitted) {
       setEventNameCommitted(true)
-      // toast.info("Event name locked. Unlock admin to edit.")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminUnlocked])
 
   // Unlock when admin gets turned on
   useEffect(() => {
     if (adminUnlocked && eventNameCommitted) {
       setEventNameCommitted(false)
-      // toast.info("You can now edit the event name.")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminUnlocked])
-
-
-
 
   // -----------HANDLERS-----------
   const handleScanSuccess = (decodedText: string) => {
@@ -315,7 +308,6 @@ export default function ScannerPage() {
       <Card
         className={`w-full max-w-[1600px] mx-auto transition-all duration-300 border-2 ${isScanning ? "border-green-500" : "border-red-500"
           }`}
-        style={{ marginLeft: "30px", marginRight: "30px" }}
       >
         <CardHeader className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -355,7 +347,6 @@ export default function ScannerPage() {
                 </div>
               )}
             </div>
-
 
             <Button
               onClick={isScanning ? stopScanner : startScanner}

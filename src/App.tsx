@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button"
 import { Link } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { APP_VERSION } from "@/version"
-import "react-toastify/dist/ReactToastify.css"
 
 export default function App() {
   return (

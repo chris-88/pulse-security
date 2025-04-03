@@ -4,8 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom"
 import App from "./App"
 import RegisterPage from "./pages/RegisterPage"
 import ScannerPage from "./pages/ScannerPage"
-import { ToastContainer } from "react-toastify"
-import "react-toastify/dist/ReactToastify.css"
+import { Toaster } from "@/components/ui/sonner"
 import "./index.css"
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -17,7 +16,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/scan" element={<ScannerPage />} />
         </Routes>
-        <ToastContainer position="bottom-center" autoClose={3000} />
+        <Toaster />
       </>
     </BrowserRouter>
   </React.StrictMode>

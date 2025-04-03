@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { toast } from "react-toastify"
+import { toast } from "sonner"
 import QRCode from "qrcode"
 import { useState } from "react"
 
