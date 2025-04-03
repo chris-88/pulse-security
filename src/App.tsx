@@ -1,11 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Link } from "react-router-dom"
+import { Badge } from "@/components/ui/badge"
+import { APP_VERSION } from "@/version"
 import "react-toastify/dist/ReactToastify.css"
 
 export default function App() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
+    <main className="min-h-screen flex items-center justify-center bg-gray-100 p-6 relative">
       <Card className="w-full max-w-md text-center">
         <CardHeader>
           <CardTitle className="text-2xl font-bold">Pulse Security</CardTitle>
@@ -19,6 +21,9 @@ export default function App() {
             <Button asChild variant="outline">
               <Link to="/scan">Scanner Mode</Link>
             </Button>
+          </div>
+          <div className="flex justify-end">
+            <Badge variant="secondary" className="text-xs">v{APP_VERSION}</Badge>
           </div>
         </CardContent>
       </Card>

@@ -1,14 +1,16 @@
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import { Html5Qrcode } from "html5-qrcode"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { toast } from "react-toastify"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { toast } from "react-toastify"
+import { Clock, UserCheck, UserX, Users, Lock, LockOpen, Unlock, ScanLine, PauseCircle, } from "lucide-react"
 
 // -----------TYPES-----------
 type Entry = {
@@ -50,6 +52,7 @@ export default function ScannerPage() {
   const [adminPin, setAdminPin] = useState("")
   const [cameras, setCameras] = useState<{ id: string; label: string }[]>([])
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null)
+  const [eventNameCommitted, setEventNameCommitted] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
     open: false,
     title: "",
@@ -58,6 +61,49 @@ export default function ScannerPage() {
     cancelText: "Cancel",
     onConfirm: () => { },
   })
+
+  // -----------TIME-----------
+  const [currentTime, setCurrentTime] = useState(new Date())
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [])
+  const timeString = currentTime.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+
+  // -----------FOCUS ON LOAD-----------
+  const eventNameRef = useRef<HTMLInputElement | null>(null)
+  useEffect(() => {
+    eventNameRef.current?.focus()
+  }, [])
+
+  // -----------RELOCK-----------
+  // Lock when admin gets turned off
+  useEffect(() => {
+    if (!adminUnlocked && eventName.trim() && !eventNameCommitted) {
+      setEventNameCommitted(true)
+      // toast.info("Event name locked. Unlock admin to edit.")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminUnlocked])
+
+  // Unlock when admin gets turned on
+  useEffect(() => {
+    if (adminUnlocked && eventNameCommitted) {
+      setEventNameCommitted(false)
+      // toast.info("You can now edit the event name.")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminUnlocked])
+
+
+
 
   // -----------HANDLERS-----------
   const handleScanSuccess = (decodedText: string) => {
@@ -182,7 +228,6 @@ export default function ScannerPage() {
     }
   }
 
-
   const stopScanner = async () => {
     if (scannerRef.current) {
       await scannerRef.current.stop()
@@ -266,46 +311,84 @@ export default function ScannerPage() {
 
   // -----------USER INTERFACE-----------
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
       <Card
-        className={`max-w-4xl mx-auto transition-all duration-300 border-2 ${isScanning ? "border-green-500" : "border-red-500"
+        className={`w-full max-w-[1600px] mx-auto transition-all duration-300 border-2 ${isScanning ? "border-green-500" : "border-red-500"
           }`}
+        style={{ marginLeft: "30px", marginRight: "30px" }}
       >
-        <CardHeader className="flex flex-col md:flex-row justify-between gap-4">
-          <CardTitle className="text-xl">Pulse Scanner</CardTitle>
-          <div className="flex gap-2 w-full md:w-auto items-center">
-            <Input
-              placeholder="Please provide an event name..."
-              value={eventName}
-              onChange={(e) => setEventName(e.target.value)}
-            />
+        <CardHeader className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <CardTitle className="text-3xl">Pulse Scanner</CardTitle>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="relative w-full sm:w-64">
+              <Input
+                ref={eventNameRef}
+                placeholder="Event name"
+                value={eventName}
+                onChange={(e) => {
+                  setEventName(e.target.value)
+
+                  // Reset committed state if admin is unlocked
+                  if (adminUnlocked && eventNameCommitted) {
+                    setEventNameCommitted(false)
+                  }
+                }}
+                onBlur={() => {
+                  if (eventName.trim() && !adminUnlocked) {
+                    setEventNameCommitted(true)
+                  }
+                }}
+                disabled={eventNameCommitted && !adminUnlocked}
+                className="pr-10"
+              />
+
+              {eventNameCommitted && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                  {adminUnlocked ? (
+                    <Unlock className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Lock className="w-4 h-4 text-gray-400" />
+                  )}
+                </div>
+              )}
+            </div>
+
+
             <Button
               onClick={isScanning ? stopScanner : startScanner}
-              variant="outline"
-              className={`rounded-full border-2 ${isScanning ? "border-green-500 text-green-600" : "border-red-500 text-red-600"
+              variant="ghost"
+              className={` ${isScanning ? "text-green-600" : "text-red-600"
                 }`}
               title={isScanning ? "Stop Scanner" : "Start Scanner"}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z"
-                />
-              </svg>
+              {isScanning ? (
+                <PauseCircle className="w-5 h-5" />
+              ) : (
+                <ScanLine className="w-5 h-5" />
+              )}
             </Button>
+            <Button
+              variant="ghost"
+              className="p-2"
+              onClick={() => {
+                if (adminUnlocked) {
+                  setAdminUnlocked(false)
+                  toast.info("Admin locked")
+                } else {
+                  setPinDialogOpen(true)
+                }
+              }}
+            >
+              {adminUnlocked ? (
+                <LockOpen className="w-6 h-6 text-green-600" />
+              ) : (
+                <Lock className="w-6 h-6 text-red-600" />
+              )}
+            </Button>
+
           </div>
         </CardHeader>
 
@@ -339,21 +422,28 @@ export default function ScannerPage() {
           />
 
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
-            <div className="flex gap-2 flex-wrap">
-              <div className="bg-muted text-muted-foreground px-3 py-1 rounded text-sm">
-                Total: {entries.length}
-              </div>
-              <div className="bg-green-100 text-green-800 px-3 py-1 rounded text-sm">
-                Active: {entries.filter(e => !e.finishTime).length}
-              </div>
-              <div className="bg-gray-100 text-gray-800 px-3 py-1 rounded text-sm">
-                Signed Out: {entries.filter(e => e.finishTime).length}
-              </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Badge variant="default" className="gap-2">
+                <Clock className="w-4 h-4" />
+                {timeString}
+              </Badge>
+              <Badge variant="outline" className="gap-2">
+                <Users className="w-4 h-4" />
+                {entries.length}
+              </Badge>
+              <Badge variant="outline" className="gap-2 text-green-600 border-green-500">
+                <UserCheck className="w-4 h-4" />
+                {entries.filter((e) => !e.finishTime).length}
+              </Badge>
+              <Badge variant="outline" className="gap-2 text-red-500 border-red-400">
+                <UserX className="w-4 h-4" />
+                {entries.filter((e) => e.finishTime).length}
+              </Badge>
             </div>
 
             <Input
               type="search"
-              placeholder="Search by name, company, or license..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="max-w-sm"
@@ -465,32 +555,6 @@ export default function ScannerPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* -------LOCK BUTTON------- */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <Button
-          variant="ghost"
-          className="p-2"
-          onClick={() => {
-            if (adminUnlocked) {
-              setAdminUnlocked(false)
-              toast.info("Admin locked")
-            } else {
-              setPinDialogOpen(true)
-            }
-          }}
-        >
-          {adminUnlocked ? (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 text-green-600">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-6 h-6 text-red-600">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-            </svg>
-          )}
-        </Button>
-      </div>
 
       {/* -------ADMIN DIALOG------- */}
       <Dialog open={pinDialogOpen} onOpenChange={setPinDialogOpen}>
